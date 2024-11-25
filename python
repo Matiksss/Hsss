@@ -1,0 +1,41 @@
+from flask import Flask, render_template, request
+from tensorflow.keras.applications.inception_v3 import InceptionV3, preprocess_input, decode_predictions
+from tensorflow.keras.preprocessing import image
+import numpy as np
+from PIL import Image
+import io
+
+app = Flask(__name__)
+
+model = InceptionV3(weights='imagenet')
+
+
+def predict_bird_species(img):
+    img = img.resize((299, 299))
+    x = image.img_to_array(img)
+    x = np.expand_dims(x, axis=0)
+    x = preprocess_input(x)
+
+    predictions = model.predict(x)
+    decoded_predictions = decode_predictions(predictions, top=1)[0]
+    results = []
+    for _, label, score in decoded_predictions:
+        results.append({'label': label, 'score': float(score)})
+
+    return results
+
+
+@app.route('/', methods=['GET', 'POST'])
+def upload_predict():
+    if request.method == 'POST':
+        file = request.files['file']
+        if file:
+            img = Image.open(io.BytesIO(file.read()))
+            results = predict_bird_species(img)
+            return render_template('result.html', results=results)
+
+    return render_template('upload_predict.html')
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
